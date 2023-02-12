@@ -1,0 +1,37 @@
+GET http://localhost:8777/api/category/ HTTP/1.1
+
+###
+
+POST http://localhost:8777/api/category/ HTTP/1.1
+content-type: application/json
+
+{
+    "name": "Pre-Historic tours",
+    "description": "Going to museum but also real evet places",
+    "budgetLimit": 9999,
+    "isActive": 1
+} 
+
+###
+
+POST http://localhost:8777/api/category/ HTTP/1.1
+content-type: application/json
+
+{
+    "name": "NewCategoryName",
+    "description": "Going to museum but also real evet places",
+    "budgetLimit": 9999,
+    "isActive": 1
+}
+
+###
+
+POST http://localhost:8777/api/category/ HTTP/1.1
+content-type: application/json
+
+{
+    "name": "ThirdCategory",
+    "description": "Going to museum but also real evet places",
+    "budgetLimit": 99999999,
+    "isActive": 1
+} 

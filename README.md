@@ -1,3 +1,7 @@
+Tasks 1-3 answers and screenshots can be found in tasks/tasks.md and REST client requests at requests.http
+
+Task 4 is mostly done but the docs will come here a bit later!
+
 ## Idea Case "model project" for backend (exam, task etc.) learning, Express Version
 This version uses Express. Now ready for studying!
 

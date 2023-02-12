@@ -3,6 +3,17 @@
 import express from "express";
 import knex from "../../db/index.js";
 
+import { validationResult } from "express-validator";
+
+// importing self-made response/error handlers from /errorHandlers/index.js
+import {successHandler, 
+  requestErrorHandler,  
+  databaseErrorHandler,
+  validationErrorHandler,
+} from "../../responseHandlers/index.js";
+
+import {validateAddMember} from '../../validationHandler/index.js'
+
 const member = express.Router();
 
 //GET all contributors
@@ -11,16 +22,16 @@ const member = express.Router();
 member.get("/old/all/contributors", function (req, res) {
   let subquery = knex("Idea_Member").distinct("memberId");
   knex('Member').whereIn('id', subquery)
-    .then(data => {
-      res
-        .status(200)
-        .send(data);
-    })
-    .catch(error => {   // Just a generic error, repetition if file!
-      res
-        .status(500)
-        .end();
-    });
+  .then(data => {
+    successHandler(res, data, "member.get/all: Mebers listed ok from DB");
+  })
+  .catch((error) => {
+    if(error.errno===1146) {
+      databaseErrorHandler(res, error, "member.get/all: Database table Member not created. ");
+    } else {
+      databaseErrorHandler(res, error, "member.get/all: ");
+    }
+  });
 });
 
 member.get("/all/contributors", function (req, res) {
@@ -47,21 +58,26 @@ member.get("/all", function (req, res) {
     .select()
     .from("Member")
     .then(data => {
-      res
-        .status(200)
-        .send(data);
+      successHandler(res, data, "member.get/all: everything listed ok from DB")
     })
     .catch(error => {
-      res
-        .status(500)
-        .send("Database error: " + error.errno);
+      if(error.errno===1146) {
+        databaseErrorHandler(res, error, "member.get/all: Database table Member not created. ");
+      } else {
+        databaseErrorHandler(res, error, "member.get/all: ");
+      }
     });
 });
 
 // ADD NEW MEMBER
 /** http://localhost:PORT/api/member/    with method=POST **/
 
-member.post("/", function (req, res) {
+member.post("/", validateAddMember ,function (req, res) {
+  
+  const valResult = validationResult(req);
+  if (!valResult.isEmpty()) {
+    return validationErrorHandler(res, valResult, "validateAddMember error");
+  }
   // Just a start of err handling for model for you
   if (req.body.firstName && req.body.lastName && req.body.email) {
     knex
@@ -77,19 +93,15 @@ member.post("/", function (req, res) {
         });
       })
       .catch(error => {
-        if (error.errno == 1062) {
+          if (error.errno == 1062) {
           // https://mariadb.com/kb/en/library/mariadb-error-codes/
-          res.status(409);
-          res.send("Conflict: Member with that name already exists!");
-        } else if (error.errno == 1054) {
-          res.status(409);
+          requestErrorHandler(res, "Conflict: Member with that name already exists!")
+          }
+         else if (error.errno == 1054) {         
           //to handle error for backend only
-          res.send(
-            "error in spelling [either in 'firstName' and/or in 'lastname' and or in 'email']."
-          );
+          requestErrorHandler(res, "error in spelling [either in 'firstName' and/or in 'lastname' and or in 'email'].")
         } else {
-          res.status(400);
-          res.send("Database error, Error number: " + error.errno);
+          databaseErrorHandler(res, error);
         }
       });
   } else {
@@ -115,20 +127,13 @@ member.get("/:id", function (req, res) {
       .where("id", id)
       .then(data => {
         if (data.length == 1) {
-          res
-            .status(200)
-            .send(data);
+          successHandler(res, data);
         } else {
-          res
-            .status(404)
-            .send("Member with id: " + req.params.id + " was not found!");
+          requestErrorHandler(res, "Member with id: " + req.params.id + " was not found!");
         }
       })
       .catch(error => {
-        res
-          .status(500)
-          .send("Database error: " + error.errno)
-          .end();
+        databaseErrorHandler(res, error);
       });
   } else {
     res
@@ -149,24 +154,16 @@ member.delete("/:id", function (req, res) {
       .where("id", id)
       .then(data => {
         if (data === 1) {
-          res
-          .status(200)
-          .end();   // Notice: This is the correct use of res.end() !
+          successHandler(res, data)
         } else {
-          res
-          .status(404)
-          .send("Invalid member id: " + id);
+          requestErrorHandler(res, "Invalid member id: " + id);
         }
       })
       .catch(error => {
-        res
-          .status(500)
-          .send("Database error: " + error.errno);
+        databaseErrorHandler(res, error);
       });
     } else {
-      res
-        .status(400)
-        .send("Member id: " + id + " is not valid!");
+      requestErrorHandler(res, "Member id: " + id + " is not valid!");
     }
 });
 
@@ -174,36 +171,26 @@ member.delete("/:id", function (req, res) {
 /** http://localhost:PORT/api/member/    with method=PUT **/
 
 member.put("/", function (req, res) {
-  // Just a start of err handling for model for you
   if (req.body.firstName && req.body.lastName && req.body.email) {
     knex("Member")
       .where("id", req.body.id)
       .update(req.body)
       .then(data => {
         if (data === 1) {
-          res
-            .status(200)
-            .end();
+          successHandler(res, data, "Success! Rows modified:" + data)
         } else {
           res
-            .status(404)
-            .send("Update not successful, " + data + " row modified");
+            requestErrorHandler(res, "Update not successful, " + data + " row modified")
         }
       })
       .catch(error => {
         if (error.errno == 1062) {
           // https://mariadb.com/kb/en/library/mariadb-error-codes/
-          res.status(409)
-            .send("Conflict: Member with that name already exists!");
+          requestErrorHandler(res, "Conflict: Member with that name already exists!");
         } else if (error.errno == 1054) {
-          res.status(400)
-            //to handle error for backend only
-            .send(
-            "error in spelling [either in 'firstName' and/or in 'lastname' and or in 'email']."
-            );
+          requestErrorHandler(res, "error in spelling [either in 'firstName' and/or in 'lastname' and or in 'email'].")
         } else {
-          res.status(500)
-              .send("Database error, Error number: " + error.errno);
+          databaseErrorHandler(res, error);
         }
       });
   } else {
@@ -226,20 +213,14 @@ member.get("/idea/comment/:id", (req, res) => {
     .where('Comment.memberId', id)
     .then(data => {
       if (data.length == 0) {
-        res
-          .status(404)
-          .send(req.params.id + " No comments");
+        requestErrorHandler(res, req.params.id + " No comments");
       } else {
-        res
-          .status(200)
-          .send(data);
+        successHandler(res, data)
       }
     })
-    .catch(err => res
-      .status(500)
-      .send({
-        error: err.message
-      }));
+    .catch(error => {
+      databaseErrorHandler(res, error)
+    });
 });
 
 export default member;
